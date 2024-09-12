@@ -1,10 +1,11 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net"
-	"time"
+	"bufio"
+	"fmt"
+	"strings"
 )
 
 func main() {
@@ -30,13 +31,13 @@ func main() {
 func handleConn(c net.Conn) {
 
 	defer c.Close()
-	for {
-		// envia o conteúdo servido na conexão
-		_, err := io.WriteString(c, time.Now().Format("02:05:00\n"))
+	scanner := bufio.NewScanner(c)
 
-		if err != nil {
-			return
+	for scanner.Scan() {
+		command := strings.TrimSpace(scanner.Text())
+		switch command {
+			case "search":
+				fmt.Println("A vida é bela") 
 		}
-		time.Sleep(1 * time.Second)
 	}
 }
