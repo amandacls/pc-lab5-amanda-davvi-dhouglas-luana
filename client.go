@@ -1,15 +1,16 @@
 package main
 
 import (
-    "encoding/json"
     "fmt"
     "io/ioutil"
     "net"
     "path/filepath"
+	"strconv"
+	"time"
 )
 
 type FileSumResult struct {
-    Sum int `json:"sum"`
+    Sum int
 }
 
 func main() {
@@ -22,31 +23,30 @@ func main() {
         fmt.Println("Erro ao conectar:", err)
         return
     }
-    defer conn.Close()
+
+	handleConn(conn)
+}
+
+func handleConn(conn net.Conn) {
+	defer conn.Close()
 
     // Calculando a soma dos arquivos
-    results := sumFilesInDirectory("/tmp/dataset")
+	for {
+		results := sumFilesInDirectory("/tmp/dataset")
+		fmt.Println(results)
+		for _, result := range(results) {
+			r := strconv.Itoa(result.Sum) + "\n"
+			fmt.Print(r)
+			_, err := conn.Write([]byte(r))
+			if err != nil {
+				fmt.Println("Erro ao enviar mensagem:", err)
+				return
+			}
+		}
 
-    // Serializando os resultados para JSON
-    resultsJSON, err := json.Marshal(results)
-    if err != nil {
-        fmt.Println("Erro ao serializar resultados:", err)
-        return
-    }
-
-    // Enviando uma mensagem
-    _, err = conn.Write([]byte("Oi servidor\n"))
-    if err != nil {
-        fmt.Println("Erro ao enviar mensagem:", err)
-        return
-    }
-
-    // Enviando a lista de resultados como JSON
-    _, err = conn.Write(resultsJSON)
-    if err != nil {
-        fmt.Println("Erro ao enviar dados:", err)
-        return
-    }
+		time.Sleep(1 * time.Minute)
+	}
+	
 }
 
 func sumFilesInDirectory(dir string) []FileSumResult {
