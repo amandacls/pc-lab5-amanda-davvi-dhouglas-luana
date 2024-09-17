@@ -1,109 +1,102 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"log"
-	"net"
-	"sync"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "net"
+    "path/filepath"
 )
 
-// Estrutura para armazenar informações do cliente
-type Client struct {
-	conn  net.Conn
-	canal chan string
+type FileSumResult struct {
+    Sum int `json:"sum"`
 }
-
-// Lista de clientes conectados
-var clients = make(map[net.Conn]*Client)
-var register = make(map[string][]string)
-var mu sync.Mutex
 
 func main() {
-	listener, err := net.Listen("tcp", "150.165.42.157:8000")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer listener.Close()
+    // Endereço do servidor TCP
+    address := "150.165.42.160:8000"
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Print(err)
-			continue
-		}
+    // Conectando ao servidor TCP
+    conn, err := net.Dial("tcp", address)
+    if err != nil {
+        fmt.Println("Erro ao conectar:", err)
+        return
+    }
+    defer conn.Close()
 
-		client := &Client{
-			conn:  conn,
-			canal: make(chan string),
-		}
+    // Calculando a soma dos arquivos
+    results := sumFilesInDirectory("/tmp/dataset")
 
-		// Adiciona o cliente à lista de clientes
-		mu.Lock()
-		clients[conn] = client
-		mu.Unlock()
+    // Serializando os resultados para JSON
+    resultsJSON, err := json.Marshal(results)
+    if err != nil {
+        fmt.Println("Erro ao serializar resultados:", err)
+        return
+    }
 
-		go handleConn(client)
-	}
+    // Enviando uma mensagem
+    _, err = conn.Write([]byte("Oi servidor\n"))
+    if err != nil {
+        fmt.Println("Erro ao enviar mensagem:", err)
+        return
+    }
+
+    // Enviando a lista de resultados como JSON
+    _, err = conn.Write(resultsJSON)
+    if err != nil {
+        fmt.Println("Erro ao enviar dados:", err)
+        return
+    }
 }
 
-func handleConn(client *Client) {
-	defer func() {
-		client.conn.Close()
+func sumFilesInDirectory(dir string) []FileSumResult {
+    files, err := ioutil.ReadDir(dir)
+    if err != nil {
+        fmt.Println("Erro ao ler diretório:", err)
+        return nil
+    }
 
-		// Remove o cliente da lista de clientes
-		mu.Lock()
-		delete(clients, client.conn)
-		mu.Unlock()
-	}()
+    if len(files) == 0 {
+        fmt.Println("Nenhum arquivo encontrado no diretório.")
+        return nil
+    }
 
-	remoteAddr := client.conn.RemoteAddr().String()
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		fmt.Println("Erro ao obter o IP:", err)
-		return
-	}
-	fmt.Printf("Nova conexão de %s\n", host)
-	appendToRegister(host, "")
+    var results []FileSumResult
 
-	scanner := bufio.NewScanner(client.conn)
-	for scanner.Scan() {
-		message := scanner.Text()
-		appendToRegister(host, message)
-		printRegister()
-	}
+    for _, file := range files {
+        filePath := filepath.Join(dir, file.Name())
+        result, err := sum(filePath)
+        if err != nil {
+            fmt.Printf("Erro ao somar arquivo %s: %v\n", filePath, err)
+            continue
+        }
+        results = append(results, FileSumResult{
+            Sum: result,
+        })
+    }
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Erro ao ler a mensagem:", err)
-	}
+    return results
 }
 
-func appendToRegister(ip string, filename string) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if _, exists := register[ip]; !exists {
-		register[ip] = []string{}
-	}
-	register[ip] = append(register[ip], filename)
+func readFile(filePath string) ([]byte, error) {
+    data, err := ioutil.ReadFile(filePath)
+    if err != nil {
+        fmt.Printf("Erro ao ler arquivo %s: %v\n", filePath, err)
+        return nil, err
+    }
+    return data, nil
 }
 
-// Obtém a lista de arquivos para um IP específico
-func getFiles(ip string) []string {
-	mu.Lock()
-	defer mu.Unlock()
-	return register[ip]
-}
+func sum(filePath string) (int, error) {
+    data, err := readFile(filePath)
+    if err != nil {
+        return 0, err
+    }
 
-// Mostra o conteúdo do registro
-func printRegister() {
-	mu.Lock()
-	defer mu.Unlock()
+    _sum := 0
+    for _, b := range data {
+        _sum += int(b)
+    }
 
-	for ip, files := range register {
-		fmt.Printf("IP: %s\n", ip)
-		for _, file := range files {
-			fmt.Printf("  %s\n", file)
-		}
-	}
+    return _sum, nil
 }
