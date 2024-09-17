@@ -5,46 +5,105 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
+	"sync"
 )
 
+// Estrutura para armazenar informações do cliente
+type Client struct {
+	conn  net.Conn
+	canal chan string
+}
+
+// Lista de clientes conectados
+var clients = make(map[net.Conn]*Client)
+var register = make(map[string][]string)
+var mu sync.Mutex
+
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("Usage: ./client search $file_hash")
-		return
-	}
-
-	command := os.Args[1]
-	fileHash := os.Args[2]
-
-	if command != "search" {
-		fmt.Println("Invalid command. Only 'search' is supported.")
-		return
-	}
-
-	address := "localhost:8000"
-
-	// Conecta ao servidor TCP
-	conn, err := net.Dial("tcp", address)
+	listener, err := net.Listen("tcp", "150.165.42.157:8000")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer listener.Close()
 
-	// Envia o comando ao servidor
-	message := fmt.Sprintf("%s %s\n", command, fileHash)
-	_, err = conn.Write([]byte(message))
-	if err != nil {
-		log.Fatal(err)
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+
+		client := &Client{
+			conn:  conn,
+			canal: make(chan string),
+		}
+
+		// Adiciona o cliente à lista de clientes
+		mu.Lock()
+		clients[conn] = client
+		mu.Unlock()
+
+		go handleConn(client)
 	}
+}
 
-	// Lê a resposta do servidor
-	scanner := bufio.NewScanner(conn)
+func handleConn(client *Client) {
+	defer func() {
+		client.conn.Close()
+
+		// Remove o cliente da lista de clientes
+		mu.Lock()
+		delete(clients, client.conn)
+		mu.Unlock()
+	}()
+
+	remoteAddr := client.conn.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		fmt.Println("Erro ao obter o IP:", err)
+		return
+	}
+	fmt.Printf("Nova conexão de %s\n", host)
+	appendToRegister(host, "")
+
+	scanner := bufio.NewScanner(client.conn)
 	for scanner.Scan() {
-		fmt.Println("Server response:", scanner.Text())
+		message := scanner.Text()
+		appendToRegister(host, message)
+		printRegister()
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		fmt.Println("Erro ao ler a mensagem:", err)
+	}
+}
+
+func appendToRegister(ip string, filename string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := register[ip]; !exists {
+		register[ip] = []string{}
+	}
+	register[ip] = append(register[ip], filename)
+}
+
+// Obtém a lista de arquivos para um IP específico
+func getFiles(ip string) []string {
+	mu.Lock()
+	defer mu.Unlock()
+	return register[ip]
+}
+
+// Mostra o conteúdo do registro
+func printRegister() {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for ip, files := range register {
+		fmt.Printf("IP: %s\n", ip)
+		for _, file := range files {
+			fmt.Printf("  %s\n", file)
+		}
 	}
 }
