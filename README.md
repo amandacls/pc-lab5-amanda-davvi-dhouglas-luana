@@ -10,7 +10,27 @@ Um cliente deve procurar que máquinas na rede armazenam o arquivo buscado. Como
 
 ## Solução:
 Utilizamos um esquema de organização baseado na arquitetura cliente-servidor. Onde os papeis a eles designados são os seguintes:
-- Cliente: 
+- Cliente:
+  1. Envia os hashs dos arquivos que ele possui
+  2. Consulta quais máquinas possuem arquivos com um dado hash 
 - Servidor:
- 
+  1. Salva os hashs em um mapa contendo: IP da máquina e os hashs dos arquivos que ela possui
+  2. Consulta quais máquinas tem um determinado hash e envia a informação para o cliente
+
 ## Como executar:
+Antes de tudo para gerar os arquivos execute o comando:
+
+```bash make_dataset.sh <numero>```
+
+Servidor:
+
+```go run server.go```
+
+Cliente:
+1. Para cadastrar os arquivos, execute:
+
+```go run clientRegister.go```
+
+2. Para consultar um arquivo, execute:
+
+```go run clientSearch.go <hash>```
