@@ -5,8 +5,10 @@ import (
     "io/ioutil"
     "net"
     "path/filepath"
-	"strconv"
-	"time"
+    "encoding/json"
+	// "strconv"
+    "bufio"
+	// "time"
 )
 
 type FileSumResult struct {
@@ -15,7 +17,7 @@ type FileSumResult struct {
 
 func main() {
     // Endereço do servidor TCP
-    address := "150.165.42.160:8000"
+    address := "150.165.74.30:8000"
 
     // Conectando ao servidor TCP
     conn, err := net.Dial("tcp", address)
@@ -31,21 +33,37 @@ func handleConn(conn net.Conn) {
 	defer conn.Close()
 
     // Calculando a soma dos arquivos
-	for {
-		results := sumFilesInDirectory("/tmp/dataset")
-		fmt.Println(results)
-		for _, result := range(results) {
-			r := strconv.Itoa(result.Sum) + "\n"
-			fmt.Print(r)
-			_, err := conn.Write([]byte(r))
-			if err != nil {
-				fmt.Println("Erro ao enviar mensagem:", err)
-				return
-			}
-		}
-
-		time.Sleep(1 * time.Minute)
+	// results := sumFilesInDirectory("/tmp/dataset")
+    scanner := bufio.NewScanner(conn)
+    _, err := conn.Write([]byte("search 1336472306\n"))
+	if err != nil {
+		fmt.Println("Erro ao enviar mensagem:", err)
+		return
 	}
+	// encoder := json.NewEncoder(conn)
+    // if err := encoder.Encode(results); err != nil {
+    //     fmt.Println("Error sending file info:", err)
+    // }
+
+    for scanner.Scan() {
+        fmt.Println(scanner.Text())
+    }
+
+    // Verificando se houve erro na leitura
+    if err := scanner.Err(); err != nil {
+        fmt.Println("Erro ao ler resposta:", err)
+    }
+
+	// for _, result := range(results) {
+	// 	r := strconv.Itoa(result.Sum) + "\n"
+	// 	// fmt.Print(r)
+	// 	_, err := conn.Write([]byte(r))
+	// 	if err != nil {
+	// 		fmt.Println("Erro ao enviar mensagem:", err)
+	// 		return
+	// 	}
+	// }
+	// time.Sleep(1 * time.Minute)
 	
 }
 
@@ -99,4 +117,11 @@ func sum(filePath string) (int, error) {
     }
 
     return _sum, nil
+}
+
+func sendFileInfo(conn net.Conn, size FileSumResult) {
+    encoder := json.NewEncoder(conn)
+    if err := encoder.Encode(size); err != nil {
+        fmt.Println("Error sending file info:", err)
+    }
 }

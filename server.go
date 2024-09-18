@@ -6,12 +6,19 @@ import (
 	"log"
 	"net"
 	"sync"
+	"strings"
+	"encoding/json"
+	"strconv"
 )
 
 // Estrutura para armazenar informações do cliente
 type Client struct {
-	conn  net.Conn
-	canal chan string
+	conn   net.Conn
+	canal  chan string
+}
+
+type Result struct {
+    Sum int `json:"Sum"`
 }
 
 // Lista de clientes conectados
@@ -20,7 +27,7 @@ var register = make(map[string][]string)
 var mu sync.Mutex
 
 func main() {
-	listener, err := net.Listen("tcp", "150.165.42.160:8000")
+	listener, err := net.Listen("tcp", "150.165.74.30:8000")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,14 +55,8 @@ func main() {
 }
 
 func handleConn(client *Client) {
-	defer func() {
-		client.conn.Close()
+	canal1 := make(chan []string)
 
-		// Remove o cliente da lista de clientes
-		mu.Lock()
-		delete(clients, client.conn)
-		mu.Unlock()
-	}()
 
 	remoteAddr := client.conn.RemoteAddr().String()
 	host, _, err := net.SplitHostPort(remoteAddr)
@@ -66,15 +67,49 @@ func handleConn(client *Client) {
 	fmt.Printf("Nova conexão de %s\n", host)
 	appendToRegister(host, "")
 
-	scanner := bufio.NewScanner(client.conn)
-	for scanner.Scan() {
-		message := scanner.Text()
-		appendToRegister(host, message)
-		printRegister()
-	}
+	go func() {
+		scanner := bufio.NewScanner(client.conn)
+			for scanner.Scan() {
+				message := scanner.Text()
+				parts := strings.Split(message, " ")
+		
+				switch parts[0] {
+					case "search":
+						result := findIPsWithValue(parts[1])
+						canal1 <- result
+					default:
+						var results []Result
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Erro ao ler a mensagem:", err)
+						// Deserializando o JSON
+						err := json.Unmarshal([]byte(message), &results)
+						if err != nil {
+							fmt.Println("Erro ao deserializar JSON:", err)
+							return
+						}
+
+						// Iterando sobre os resultados
+						for _, result := range results {
+							sum := strconv.Itoa(result.Sum)
+							appendToRegister(host, sum)
+						}
+						response := []string{"Hash cadastrados:\n", message}
+						canal1 <- response
+				}
+		
+			}
+		
+			if err := scanner.Err(); err != nil {
+				fmt.Println("Erro ao ler a mensagem:", err)
+			}
+	}()
+	
+	select {
+		case msg1 := <- canal1:
+			_, err := client.conn.Write([]byte(strings.Join(msg1, " ") + "\n"))
+			if err != nil {
+				fmt.Println("Erro ao enviar mensagem:", err)
+				return
+			}
 	}
 }
 
@@ -112,3 +147,20 @@ func printRegister() {
 		}
 	}
 }
+
+func findIPsWithValue(value string) []string {
+	var result []string
+
+	// Itera sobre o mapa
+	for ip, values := range register {
+		// Itera sobre a lista de valores para cada IP
+		for _, v := range values {
+			if v == value {
+				result = append(result, ip)
+				break
+			}
+		}
+	}
+
+	return result
+} 
