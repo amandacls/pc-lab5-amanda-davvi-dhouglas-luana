@@ -4,6 +4,7 @@ import (
     "fmt"
     "net"
     "bufio"
+    "os"
 )
 
 type FileSumResult struct {
@@ -27,9 +28,17 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
+    if len(os.Args) < 2 {
+        fmt.Println("Uso: go run clientSearch.go <numero>")
+        return
+    }
+
+    // Acessando o argumento
+    arg := os.Args[1]
+
     // Calculando a soma dos arquivos
     scanner := bufio.NewScanner(conn)
-    _, err := conn.Write([]byte("search 1336472306\n"))
+    _, err := conn.Write([]byte("search " + arg + "\n"))
 	if err != nil {
 		fmt.Println("Erro ao enviar mensagem:", err)
 		return
