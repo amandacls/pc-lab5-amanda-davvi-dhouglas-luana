@@ -33,17 +33,13 @@ func handleConn(conn net.Conn) {
 	defer conn.Close()
 
     // Calculando a soma dos arquivos
-	// results := sumFilesInDirectory("/tmp/dataset")
+	results := sumFilesInDirectory("/tmp/dataset")
+    fmt.Println("Enviando arquivos:\n", results)
     scanner := bufio.NewScanner(conn)
-    _, err := conn.Write([]byte("search 1336472306\n"))
-	if err != nil {
-		fmt.Println("Erro ao enviar mensagem:", err)
-		return
-	}
-	// encoder := json.NewEncoder(conn)
-    // if err := encoder.Encode(results); err != nil {
-    //     fmt.Println("Error sending file info:", err)
-    // }
+	encoder := json.NewEncoder(conn)
+    if err := encoder.Encode(results); err != nil {
+        fmt.Println("Error sending file info:", err)
+    }
 
     for scanner.Scan() {
         fmt.Println(scanner.Text())

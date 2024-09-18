@@ -150,6 +150,7 @@ func printRegister() {
 
 func findIPsWithValue(value string) []string {
 	var result []string
+	result = append(result, "Ips encontrados: ")
 
 	// Itera sobre o mapa
 	for ip, values := range register {
