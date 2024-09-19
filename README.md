@@ -23,14 +23,16 @@ Antes de tudo para gerar os arquivos execute o comando:
 ```bash make_dataset.sh <numero>```
 
 Servidor:
+1. Antes de inicializar o servidor com o comando abaixo, altere o IP para o da máquina em que o servidor estará sendo executado.
 
 ```go run server.go```
 
 Cliente:
-1. Para cadastrar os arquivos, execute:
+1. Antes de inicializar o cliente com o comando abaixo, altere o IP para o da máquinaservidor  estará.
+2. Para cadastrar os arquivos, execute:
 
 ```go run clientRegister.go```
 
-2. Para consultar um arquivo, execute:
+3. Para consultar um arquivo, execute:
 
 ```go run clientSearch.go <hash>```
