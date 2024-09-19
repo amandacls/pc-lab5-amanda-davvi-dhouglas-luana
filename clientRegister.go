@@ -6,9 +6,7 @@ import (
     "net"
     "path/filepath"
     "encoding/json"
-	// "strconv"
     "bufio"
-	// "time"
 )
 
 type FileSumResult struct {
@@ -49,18 +47,6 @@ func handleConn(conn net.Conn) {
     if err := scanner.Err(); err != nil {
         fmt.Println("Erro ao ler resposta:", err)
     }
-
-	// for _, result := range(results) {
-	// 	r := strconv.Itoa(result.Sum) + "\n"
-	// 	// fmt.Print(r)
-	// 	_, err := conn.Write([]byte(r))
-	// 	if err != nil {
-	// 		fmt.Println("Erro ao enviar mensagem:", err)
-	// 		return
-	// 	}
-	// }
-	// time.Sleep(1 * time.Minute)
-	
 }
 
 func sumFilesInDirectory(dir string) []FileSumResult {
